@@ -17,8 +17,7 @@ from huggingface_hub import hf_hub_download, snapshot_download
 from lime.lime_text import LimeTextExplainer
 
 
-
-HF_REPO_ID = "ayman005/toxsense-model"   
+HF_REPO_ID = "ayman005/toxsense-model"
 MAX_LEN    = 128
 
 LABELS = ['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']
@@ -33,7 +32,7 @@ LABEL_META = {
 }
 
 SEVERITY_WEIGHTS = np.array([0.30, 0.50, 0.20, 0.50, 0.20, 0.40], dtype='float32')
-BEST_THRESHOLD   = 0.80   
+BEST_THRESHOLD   = 0.80
 
 
 # ── Custom loss (needed to load the model) 
@@ -56,17 +55,15 @@ def load_model_and_tokenizer():
     model = keras.models.load_model(
         model_path, custom_objects={'weighted_bce': weighted_bce}
     )
-
     tokenizer_dir = snapshot_download(repo_id=HF_REPO_ID)
     tokenizer = DistilBertTokenizerFast.from_pretrained(tokenizer_dir)
-
     return model, tokenizer
 
 
 model, tokenizer = load_model_and_tokenizer()
 
 
-# ── Inference functions
+# ── Inference functions 
 
 def severity_score(probs):
     return np.clip(
@@ -133,20 +130,40 @@ st.caption("Multi-Label Toxicity Classifier · DistilBERT + LIME Explainability"
 
 st.markdown("---")
 
+# ── Initialize session state for the single shared text box
+if 'comment_text' not in st.session_state:
+    st.session_state['comment_text'] = ""
+
+# ── Examples — placed ABOVE the input, buttons write into the same key 
+st.subheader("Try an example")
+examples = [
+    "I love this community!",
+    "You are such an idiot, I hate you.",
+    "I will find you and hurt you.",
+]
+cols = st.columns(len(examples))
+for i, (col, ex) in enumerate(zip(cols, examples)):
+    if col.button(ex[:25] + "...", key=f"example_btn_{i}"):
+        st.session_state['comment_text'] = ex
+        st.rerun()
+
+st.markdown("---")
+
+# ── Single input box, bound to session_state via key 
 text_input = st.text_area(
     "Enter a comment to analyze",
     placeholder="Type or paste a comment here...",
-    height=100
+    height=100,
+    key="comment_text"
 )
 
-analyze = st.button("Analyze", type="primary")
+analyze = st.button("Analyze", type="primary", key="analyze_button")
 
 if analyze and text_input.strip():
     probs, scores = predict_text([text_input])
     probs = probs[0]
     score = scores[0]
 
-    # ── Verdict 
     flagged = [LABELS[i] for i, p in enumerate(probs) if p >= BEST_THRESHOLD]
 
     if not flagged:
@@ -154,7 +171,6 @@ if analyze and text_input.strip():
     else:
         st.error(f"🚩 Flagged: {', '.join(flagged)} — Severity Score: {score:.1f}/100")
 
-    # ── Per-label breakdown 
     st.subheader("Label Breakdown")
     for i, label in enumerate(LABELS):
         meta = LABEL_META[label]
@@ -162,13 +178,11 @@ if analyze and text_input.strip():
         st.write(f"{meta['emoji']} **{label.replace('_', ' ').title()}** — {pct:.1f}%")
         st.progress(min(int(pct), 100))
 
-    # ── LIME explanation 
     st.subheader("Why this prediction?")
     with st.spinner("Generating explanation..."):
         fig = lime_plot(text_input)
         st.pyplot(fig)
 
-    # ── Ethics note 
     st.markdown("---")
     st.caption(
         "⚠️ This model is trained on the Jigsaw Toxic Comment dataset (Wikipedia "
@@ -179,20 +193,3 @@ if analyze and text_input.strip():
 
 elif analyze:
     st.warning("Please enter some text to analyze.")
-
-# ── Examples 
-st.markdown("---")
-st.subheader("Try an example")
-examples = [
-    "I love this community!",
-    "You are such an idiot, I hate you.",
-    "I will find you and hurt you.",
-]
-cols = st.columns(len(examples))
-for col, ex in zip(cols, examples):
-    if col.button(ex[:25] + "...", key=ex):
-        st.session_state['example_text'] = ex
-        st.rerun()
-
-if 'example_text' in st.session_state:
-    st.text_area("Example loaded:", value=st.session_state['example_text'], key="loaded")
