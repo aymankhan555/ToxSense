@@ -1,6 +1,11 @@
-# ToxSense — Multi-Label Toxicity Classifier
+# ToxSense: An Explainable Multi Label Toxicity Classifier
 
-Fine-tuned DistilBERT for simultaneous detection of 6 toxicity categories in online comments, with word-level explainability via LIME and a weighted severity score from 0 to 100.
+## Fine-tuned DistilBERT for simultaneous detection of 6 toxicity categories in online comments, with word-level explainability via LIME and a weighted severity score from 0 to 100.
+
+## Demo
+
+![ToxSense Demo](demo.gif)
+--
 
 &nbsp;
 
