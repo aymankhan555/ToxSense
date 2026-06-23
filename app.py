@@ -84,19 +84,21 @@ def predict_text(texts):
     return probs, severity_score(probs)
 
 
-def predict_fn_lime(texts):
+# ── LIME prediction function
+def predict_fn_lime(texts, label_idx=0):
     probs, _ = predict_text(texts)
-    toxic_prob = probs[:, 0]
-    non_toxic_prob = 1.0 - toxic_prob
-    return np.column_stack([non_toxic_prob, toxic_prob])
+    label_prob = probs[:, label_idx]
+    return np.column_stack([1.0 - label_prob, label_prob])
 
 
 explainer = LimeTextExplainer(class_names=['non-toxic', 'toxic'])
 
 
-def lime_plot(text):
+# ── LIME visualization
+def lime_plot(text, label_idx=0):
+    fn = lambda texts: predict_fn_lime(texts, label_idx)
     exp = explainer.explain_instance(
-        text, predict_fn_lime, num_features=8, num_samples=300
+        text, fn, num_features=8, num_samples=300
     )
     word_list = exp.as_list(label=1)
     words   = [x[0] for x in word_list]
@@ -111,7 +113,9 @@ def lime_plot(text):
     ax.set_facecolor('#1e1e1e')
 
     ax.barh(words, weights, color=colors, height=0.6)
-    ax.set_title("Word Influence on Toxicity Score", color='white', fontsize=12, pad=10)
+    # NEW
+    label_name = LABELS[label_idx].replace('_', ' ').title()
+    ax.set_title(f"Word Influence on {label_name} Score", color='white', fontsize=12, pad=10)
     ax.tick_params(colors='white', labelsize=10)
     ax.axvline(0, color='white', linestyle='--', alpha=0.5)
     for spine in ax.spines.values():
@@ -185,11 +189,8 @@ if analyze and text_input.strip():
 
     st.markdown("---")
     st.caption(
-        "⚠️ This model is trained on the Jigsaw Toxic Comment dataset (Wikipedia "
-        "talk page comments) and may reflect biases present in that data. "
-        "Predictions are probabilistic and should not be the sole basis for "
-        "moderation decisions."
-    )
+        "⚠️ This model is trained on the Jigsaw Toxic Comment dataset (Wikipedia talk page comments) and may reflect biases present in that data. Due to class imbalance in training, the toxic label tends to dominate predictions. Predictions are probabilistic and should not be the sole basis for moderation decisions."
+        )
 
 elif analyze:
     st.warning("Please enter some text to analyze.")
